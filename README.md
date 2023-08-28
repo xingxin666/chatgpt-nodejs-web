@@ -43,16 +43,35 @@ pnpm start
 ```
 
 ### 访问
-post 请求
+post 请求例子
 
-http://localhost:3008/api/chat-process
 
-参数例子
-Headers：Content-Type application/json
-
-Body：{"prompt":"介绍下你自己","modelCode": "ERNIE-Bot-turbo"}
+终端执行下面命令
 
 curl -X POST -H "Content-Type: application/json" -d '{"prompt": "你是谁","modelCode": "GPT-3.5"}' http://localhost:3008/api/chat-process
+
+#### modelCode可选值
+ChatGLM2-6B
+
+GPT-3.5
+
+GPT-4
+
+GPT_BROWSER
+
+BING
+
+CLAUDE
+
+ERNIE-Bot-turbo
+
+#### 必应参数例子
+{
+    "prompt": "你好","modelCode": "BING", "options":{"conversationId":"51D|BingProd|6120AEAD1A506F43373091BE999A7F0C5D096B8A0D2E19392B8391C507D0653A","convStyle":"Creative"}
+}
+
+conversationId：上下文对话id，第一次请求传空，后续传第一次请求返回的conversationId值
+convStyle：对话风格，可传参数 Creative：创造力的，Precise：精确的，Balanced：平衡的，不传默认是Creative
 
 ## 生产部署
 复制整个项目文件夹到有 `node` 服务环境的服务器上。
