@@ -1,11 +1,14 @@
 import { MessageCenter, Request, catchAwait } from 'utils-lib-js'
 import crypto from 'crypto';
 
+import { Conversation } from '../helpers/index';
+
 const genRanHex = size => [...Array(size)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
 
 
 // 请求对话信息接口的响应信息
 export interface IBingInfo {
+  convStyle?: Conversation.ConversationStyle
   clientId: string
   conversationId: string
   conversationSignature: string

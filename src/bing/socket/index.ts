@@ -36,10 +36,10 @@ export class NewBingSocket extends MessageCenter {
 
   // 将conversation信息赋值到消息模板中
   mixBingInfo(bingInfo: IBingInfoPartial) {
-    const { conversationId, conversationSignature, clientId } = bingInfo
+    const { conversationId, conversationSignature, clientId, convStyle } = bingInfo
     this.bingInfo = bingInfo
     this.convTemp = setConversationTemplate({
-      conversationId, conversationSignature, clientId,
+      conversationId, conversationSignature, clientId, convStyle,
     })
     return this
   }
@@ -81,6 +81,10 @@ export class NewBingSocket extends MessageCenter {
     return this
   }
 
+  getBingInfo() {
+      return this.bingInfo
+  }
+
   // 发消息，兼容Object和string
   sendMessage = (opts: IMessageOpts) => {
     const { bingInfo, convTemp, ws } = this
@@ -97,6 +101,7 @@ export class NewBingSocket extends MessageCenter {
 
     if (ws) {
       this.emit('send-message', str)
+      console.log("ws.send=",str + fixStr)
       ws.send(str + fixStr)
     }
   }
@@ -125,7 +130,7 @@ export class NewBingSocket extends MessageCenter {
   // ws出错
   private error = (e: ErrorEvent) => {
     this.emit('error', e)
-    console.log('error')
+    console.log('error', e)
   }
 
   // 断线检测
@@ -159,21 +164,28 @@ export class NewBingSocket extends MessageCenter {
 export function onMessage(e: MessageEvent) {
   const dataSource = e.data.toString().split(fixStr)[0]
   const data = stringToJson(dataSource)
-  console.log('接收到消息onMessage_data=', JSON.stringify(data))
+  //console.log('接收到消息onMessage_data=', JSON.stringify(data))
+  
   const { type } = data ?? {}
+  console.log('接收到消息,type=',type)
   switch (type) {
     case 1:// 对话中
       this.emit('message:ing', data.arguments?.[0]?.messages?.[0])
       break
     case 2:// 对话完成
       this.emit('message:finish', data.item?.messages?.[1])
+      console.log('对话完成data=', JSON.stringify(data))
       // this.clearWs()
+      break
+    case 3:// 暂时未知类型
+      console.log('type=3 data=', JSON.stringify(data))
       break
     case 6:// 断线检测
       // console.log(data)
       break
     case 7:// Connection closed with an error
       console.log(data)
+      this.emit('message:finish', { text: `服务繁忙，请重试`, statusCode: 500  });
       break
     default:// 初始化响应
       this.sendPingMsg()
@@ -182,10 +194,14 @@ export function onMessage(e: MessageEvent) {
 }
 // 发送聊天消息
 export function sendConversationMessage(params?: IConversationMessage) {
-  const { message } = params
-  const arg = this.convTemp.arguments[0]
-  arg.message.text = message
-  arg.isStartOfSession = true// 是否是新对话
-  this.convTemp.invocationId = '0' // invocationId.toString()// 第几段对话
+  const { message, invocationId} = params
+  if (this.convTemp && this.convTemp.arguments) {
+    const arg = this.convTemp.arguments[0]
+    arg.message.text = message
+    arg.isStartOfSession = invocationId=== 0 ? true : false// 是否是新对话
+    this.convTemp.invocationId = invocationId.toString() // invocationId.toString()// 第几段对话
+  } else {
+    console.log("this.convTemp:{}", this.convTemp)
+  }
   this.sendMessage({ message: this.convTemp })
 }
