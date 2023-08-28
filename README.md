@@ -71,6 +71,7 @@ ERNIE-Bot-turbo
 }
 
 conversationId：上下文对话id，第一次请求传空，后续传第一次请求返回的conversationId值
+
 convStyle：对话风格，可传参数 Creative：创造力的，Precise：精确的，Balanced：平衡的，不传默认是Creative
 
 ## 生产部署
