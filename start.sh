@@ -26,6 +26,13 @@ export BAIDU_SECRET_KEY=
 echo 'BAIDU_API_KEY:'$BAIDU_API_KEY
 echo 'BAIDU_SECRET_KEY:'$BAIDU_SECRET_KEY
 
+export CHATGLM_API_BASE_URL=http://localhost:8000
+export CHATGLM_API_MODEL_DEFAULT=chatglm2-6b
+export CHATGLM_API_KEY=none
+echo 'CHATGLM_API_BASE_URL:'$CHATGLM_API_BASE_URL
+echo 'CHATGLM_API_MODEL_DEFAULT:'$CHATGLM_API_MODEL_DEFAULT
+echo 'CHATGLM_API_KEY:'$CHATGLM_API_KEY
+
 date=`date +%Y%m%d-%H%M%S`
 
 mv chatgpt-nodejs.log chatgpt-nodejs.log-$date 
