@@ -1,4 +1,5 @@
 import type { FetchFn, openai } from 'chatgpt'
+import { Conversation } from './bing/helpers/index';
 
 export interface RequestProps {
   prompt: string
@@ -13,6 +14,7 @@ export interface ChatContext {
   parentMessageId?: string
   messageId?: string
   messages?: Array<openai.ChatCompletionRequestMessage>
+  convStyle?: Conversation.ConversationStyle
 }
 
 export interface ChatGPTUnofficialProxyAPIOptions {
