@@ -56,10 +56,12 @@
     "tslib": "^2.5.0",
     "utils-lib-js": "^1.7.8",
     "uuid": "^9.0.0",
+    "websocket-as-promised": "^2.0.1",
     "ws": "^8.13.0",
     "keyv": "^4.5.2",
     "quick-lru": "^6.1.1",
-    "langchain": "0.0.113"
+    "langchain": "0.0.113",
+    "ifw": "^0.0.2"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^0.39.4",

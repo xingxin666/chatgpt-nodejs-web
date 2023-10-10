@@ -176,13 +176,13 @@ async function queryBing(prompt, res, conversationId, convStyle) {
     }
     else {
       res.write(`\n${JSON.stringify({ text: `初始化失败`, statusCode: 500 })}`)
-      Promise.reject(new Error('浏览器初始化失败！'))
+      //Promise.reject(new Error('浏览器初始化失败！'))
     }
   }
   catch (error) {
 		console.error('error - queryBing -> ', error)
     res.write(`\n${JSON.stringify({ text: `处理失败` , statusCode: 500 })}`)
-    Promise.reject(new Error('浏览器初始化失败！' + error.message))
+    //Promise.reject(new Error('浏览器初始化失败！' + error.message))
   }
 }
 
@@ -205,10 +205,7 @@ export async function initBingServer(conversationId, convStyle) {
 			if (agent)
 				options.agent = agent
 
-      let bingSocket = new NewBingSocket({
-				address: '/sydney/ChatHub',
-				options,
-			}, config)
+     
 
       let bingServer : NewBingServer
       if (conversationId) {
@@ -233,6 +230,13 @@ export async function initBingServer(conversationId, convStyle) {
         if (convStyle) {
           bingServer.bingInfo.convStyle = convStyle
         }
+        let address = '/sydney/ChatHub?sec_access_token=' + encodeURIComponent(bingServer.bingInfo.x_sydney_encryptedconversationsignature)
+        console.log(address)
+        let bingSocket = new NewBingSocket({
+          address: address,
+          options,
+        }, config)
+
 				bingSocket.mixBingInfo(bingServer.bingInfo).createWs().initEvent()
 				bingSocket.on('close', () => {
 					console.warn('bingSocket: close')

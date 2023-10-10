@@ -3,6 +3,7 @@ export type IBingInfo = {
     clientId: string;
     conversationId: string;
     conversationSignature: string;
+    x_sydney_encryptedconversationsignature: string;
     result: {
         message: unknown;
         value: string;

@@ -2,6 +2,11 @@ import { MessageCenter, Request, catchAwait } from 'utils-lib-js'
 import crypto from 'crypto';
 
 import { Conversation } from '../helpers/index';
+import e from 'express';
+
+import axios from 'axios'
+
+import { fetch,  } from '../isomorphic'
 
 const genRanHex = size => [...Array(size)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
 
@@ -12,6 +17,7 @@ export interface IBingInfo {
   clientId: string
   conversationId: string
   conversationSignature: string
+  x_sydney_encryptedconversationsignature: string
   result: {
     message: unknown
     value: string
@@ -53,8 +59,10 @@ export class NewBingServer extends MessageCenter {
 
   // 初始化request
   initServer() {
-    this.bingRequest.use('error', console.error)
-    // .use("response", console.log)
+    this.bingRequest.use('error', console.error).errFn(e =>{
+      console.error('bingRequest-error1',e)
+    })
+    //this.bingRequest.use("response", console.log)
   }
 
   // 发起请求
@@ -66,7 +74,7 @@ export class NewBingServer extends MessageCenter {
     const { cookie } = _config
     const options: any = {
       headers: { cookie ,
-                 /*accept: 'application/json',
+                 accept: 'application/json',
                 'accept-language': 'en-US,en;q=0.9',
                 'content-type': 'application/json',
                 'sec-ch-ua': '"Microsoft Edge";v="113", "Chromium";v="113", "Not-A.Brand";v="24"',
@@ -87,20 +95,46 @@ export class NewBingServer extends MessageCenter {
                 'x-ms-useragent': 'azsdk-js-api-client-factory/1.0.0-beta.1 core-rest-pipeline/1.10.0 OS/Win32',
                 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36 Edg/113.0.1774.50',
                 Referer: 'https://www.bing.com/search?q=Bing+AI&showconv=1',
-                'Referrer-Policy': 'origin-when-cross-origin',*/
+                'Referrer-Policy': 'origin-when-cross-origin',
                 
       },
     }
-    if (agent)
-      options.agent = agent
-      
-    console.error('createConversation_options=',options)
 
-    const [err, res] = await catchAwait(this.bingRequest.GET('/turing/conversation/create', {}, null, options))
-    console.error('err=',err)
-    console.error('res=',res)
-    if (err)
-      return this.throwErr(err)
-    return res
+    //if (agent)
+    //  options.agent = agent
+      
+    console.log('createConversation_options=',options)
+
+    try {
+      const query = new URLSearchParams({
+        bundleVersion: '1.1055.8',
+      })
+
+      const response = await fetch(`https://www.bing.com/turing/conversation/create?${query}`, { method: 'GET', ...options})
+        .catch(e => {
+          console.log(e)
+        })
+
+      console.log(response)
+      if (!response) {
+        return null
+      }
+      const data = await response.json().catch((e: any) => {})
+      console.log('data', data)
+      if (!data?.clientId) {
+        return null
+      }
+      console.log('headers X-Sydney-encryptedconversationsignature', response.headers.get('X-Sydney-encryptedconversationsignature') )
+      // 可以使用 headers 对象访问响应头信息
+      data.x_sydney_encryptedconversationsignature = response.headers.get('X-Sydney-encryptedconversationsignature') || undefined
+      //data.conversationSignature = headers['x-sydney-conversationsignature']
+      // data 包含响应体内容
+      console.log('res data', data);
+      return data
+    } catch (error) {
+      console.error(error);
+      return null
+    }
+      
   }
 }
