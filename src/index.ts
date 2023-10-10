@@ -3,7 +3,7 @@ import type { RequestProps } from './types'
 import cors from 'cors'
 
 import type { ChatContext } from './chatgpt'
-import { chatConfig, currentModel } from './chatgpt'
+import { chatConfig } from './chatgpt'
 import { auth } from './middleware/auth'
 import { limiter } from './middleware/limiter'
 
@@ -57,6 +57,8 @@ router.post('/chat-process', [auth, limiter], async (req, res) => {
       await replyChatGPT(promptMsg, gptModel4, res, options, systemMessage, temperature)
     else if (modelCode === 'GPT_BROWSER')
       await replyChatGPTBrowser(promptMsg, gptModel3, res, options, systemMessage, temperature)
+    else if (modelCode.toLocaleLowerCase().startsWith('gpt'))
+      await replyChatGPT(promptMsg, modelCode, res, options, systemMessage, temperature)
     else if (modelCode === 'BING'){
       res.write(`${JSON.stringify({ text: '处理中，请稍后...' })}`)
       await replyBing(promptMsg, res, options, systemMessage, 0)
@@ -79,6 +81,7 @@ router.post('/chat-process', [auth, limiter], async (req, res) => {
     res.end()
   }
 })
+
 
 app.use('', router)
 app.use('/api', router)

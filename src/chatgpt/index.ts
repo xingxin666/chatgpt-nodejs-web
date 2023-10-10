@@ -1,7 +1,7 @@
 import * as dotenv from 'dotenv'
 import 'isomorphic-fetch'
 import type { ChatGPTAPIOptions, ChatMessage, SendMessageOptions, openai } from 'chatgpt'
-import { ChatGPTAPI, ChatGPTUnofficialProxyAPI } from 'chatgpt'
+import { ChatGPTAPI } from 'chatgpt'
 import { SocksProxyAgent } from 'socks-proxy-agent'
 import httpsProxyAgent from 'https-proxy-agent'
 import fetch from 'node-fetch'
@@ -10,6 +10,8 @@ import { sendResponse } from '../utils'
 import { isNotEmptyString } from '../utils/is'
 import type { ApiModel, ChatContext, ChatGPTUnofficialProxyAPIOptions, ModelConfig } from '../types'
 import type { RequestOptions } from './types'
+import Keyv from "keyv";
+import QuickLRU from "quick-lru";
 
 const { HttpsProxyAgent } = httpsProxyAgent
 
@@ -30,63 +32,66 @@ const OPENAI_API_BASE_URL = process.env.OPENAI_API_BASE_URL
 const OPENAI_API_MODEL = process.env.OPENAI_API_MODEL_DEFAULT
 const MODEL_DEFAULT = isNotEmptyString(OPENAI_API_MODEL) ? OPENAI_API_MODEL : 'gpt-3.5-turbo'
 
-let apiModel: ApiModel
+
+let _messageStore = new Keyv({
+  //todo 改成redis或Mysql
+  store: new QuickLRU({ maxSize: 10000, maxAge: 3600000 })
+});
+
+var apis = {}
 
 if (!isNotEmptyString(process.env.OPENAI_API_KEY) && !isNotEmptyString(process.env.OPENAI_ACCESS_TOKEN))
   throw new Error('Missing OPENAI_API_KEY or OPENAI_ACCESS_TOKEN environment variable')
 
-let api: ChatGPTAPI | ChatGPTUnofficialProxyAPI
 
-(async () => {
+async function getApiByModelCode(modelCode) : Promise<ChatGPTAPI> {
   // More Info: https://github.com/transitive-bullshit/chatgpt-api
-
-  if (isNotEmptyString(process.env.OPENAI_API_KEY)) {
-    const model = MODEL_DEFAULT;
-    const options: ChatGPTAPIOptions = {
-      apiKey: process.env.OPENAI_API_KEY,
-      completionParams: { model },
-      debug: true,
-    }
-
-    // increase max token limit if use gpt-4
-    if (model.toLowerCase().includes('gpt-4')) {
-      // if use 32k model
-      if (model.toLowerCase().includes('32k')) {
-        options.maxModelTokens = 32768
-        options.maxResponseTokens = 8192
-      }
-      else {
-        options.maxModelTokens = 8192
-        options.maxResponseTokens = 2048
-      }
-    }
-
-    if (isNotEmptyString(OPENAI_API_BASE_URL))
-      options.apiBaseUrl = `${OPENAI_API_BASE_URL}/v1`
-
-    setupProxy(options)
-
-    api = new ChatGPTAPI({ ...options })
-    apiModel = 'ChatGPTAPI'
+  let api: ChatGPTAPI  = apis[modelCode]
+  if (api) {
+    return api
   }
-  else {
-    const OPENAI_API_MODEL = process.env.OPENAI_API_MODEL
-    const options: ChatGPTUnofficialProxyAPIOptions = {
-      accessToken: process.env.OPENAI_ACCESS_TOKEN,
-      debug: true,
-    }
-    if (isNotEmptyString(OPENAI_API_MODEL))
-      options.model = OPENAI_API_MODEL
 
-    if (isNotEmptyString(process.env.API_REVERSE_PROXY))
-      options.apiReverseProxyUrl = process.env.API_REVERSE_PROXY
-
-    setupProxy(options)
-
-    api = new ChatGPTUnofficialProxyAPI({ ...options })
-    apiModel = 'ChatGPTUnofficialProxyAPI'
+  const model = modelCode;
+  const options: ChatGPTAPIOptions = {
+    apiKey: process.env.OPENAI_API_KEY,
+    completionParams: { model },
+    debug: true,
   }
-})()
+
+  options.maxModelTokens = 4096
+  options.maxResponseTokens = 1000
+
+  // increase max token limit if use gpt-4
+  if (modelCode.toLowerCase().includes('gpt-4')) {
+    // if use 32k model
+    if (modelCode.toLowerCase().includes('32k')) {
+      options.maxModelTokens = 32768
+      options.maxResponseTokens = 8192
+    }
+    else {
+      options.maxModelTokens = 8192
+      options.maxResponseTokens = 2048
+    }
+  }
+  else if (modelCode.toLowerCase().includes('gpt-3.5')) {
+    if (modelCode.toLowerCase().includes('16k')) {
+      options.maxModelTokens = 16384
+      options.maxResponseTokens = 4096
+    }
+  }
+
+  if (isNotEmptyString(OPENAI_API_BASE_URL))
+    options.apiBaseUrl = `${OPENAI_API_BASE_URL}/v1`
+
+  setupProxy(options)
+
+  options.messageStore = _messageStore
+
+  api = new ChatGPTAPI({ ...options })
+
+  apis[modelCode] = api;
+  return api
+}
 
 
 async function chatReplyProcess(requestOptions: RequestOptions) {
@@ -96,18 +101,14 @@ async function chatReplyProcess(requestOptions: RequestOptions) {
 
     let messages = null;
 
-    if (apiModel === 'ChatGPTAPI') {
-      if (isNotEmptyString(systemMessage))
-        options.systemMessage = systemMessage
-    }
+    if (isNotEmptyString(systemMessage))
+      options.systemMessage = systemMessage
+    
 
     if (lastContext != null) {
-      if (apiModel === 'ChatGPTAPI') {
-        options.parentMessageId = lastContext.parentMessageId
-        options.messageId = lastContext.messageId
-        messages = requestOptions.lastContext.messages
-      } else
-        options = { ...lastContext }
+      options.parentMessageId = lastContext.parentMessageId
+      options.messageId = lastContext.messageId
+      messages = requestOptions.lastContext.messages
     }
     let model = requestOptions.model
     if (!isNotEmptyString(model)) {
@@ -119,6 +120,7 @@ async function chatReplyProcess(requestOptions: RequestOptions) {
     }
     options.completionParams = completionParams
 
+    let api: ChatGPTAPI  = await getApiByModelCode(model)
     globalThis.console.log(`${new Date().toLocaleString()} 请求:${prompt},lastContext:${JSON.stringify(lastContext)}`)
     const response = await api.sendMessage(prompt, {
       ...options,
@@ -170,7 +172,7 @@ async function chatConfig() {
     : '-'
   return sendResponse<ModelConfig>({
     type: 'Success',
-    data: { apiModel, reverseProxy, timeoutMs, socksProxy, httpsProxy, balance },
+    data: { reverseProxy, timeoutMs, socksProxy, httpsProxy, balance },
   })
 }
 
@@ -199,10 +201,7 @@ function setupProxy(options: ChatGPTAPIOptions | ChatGPTUnofficialProxyAPIOption
   }
 }
 
-function currentModel(): ApiModel {
-  return apiModel
-}
 
 export type { ChatContext, ChatMessage }
 
-export {chatReplyProcess, chatConfig, currentModel }
+export {chatReplyProcess, chatConfig }
